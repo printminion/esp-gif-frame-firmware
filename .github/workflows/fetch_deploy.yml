@@ -1,0 +1,164 @@
+name: Store_esp_gif_frame_firmwares
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  push:
+    branches:
+      - gh_actions
+
+jobs:
+  empty_branch:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: firmware
+    - name: Create new empty firmware branch
+      run: |
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config user.name "github-actions[bot]"
+        git switch --orphan new_branch                                 # create empty branch
+        git commit --allow-empty -m "Initial commit"
+        git push -u origin new_branch                                  # push empty branch in repo
+        git switch firmware
+        git reset --hard new_branch                                    # reset firmware branch
+        git push origin firmware -f
+        git push origin --delete new_branch                            # delete empty_branch
+
+  download:
+    runs-on: ubuntu-latest
+    needs: empty_branch
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: firmware
+
+      - name: Merge branch main into branch firmware
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git remote add -f mrg_main "https://github.com/printminion/esp-gif-frame-firmware.git" --track main
+          git switch -c work
+          #rm -rf ./github
+          git merge mrg_main/main --allow-unrelated-histories &> status.txt
+          echo "$(<status.txt)"
+
+      - name: Push into branch firmware
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          branch: 'firmware'
+
+      - uses: actions/checkout@v4
+        with:
+          ref: firmware
+
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          workflow: build_devel.yml
+          repo: printminion/seeedstudio-xiao-TFT_eSPI_GifPlayer_With_Touch
+          name: firmware*
+          name_is_regexp: true
+
+      - name: Move artifacts in one folder
+        run: |
+          mkdir -p ./mv_firmware
+          rsync -avR ./firmware/./ ./mv_firmware
+          rm -rf ./firmware/firmware
+
+      - name: Move firmware files in sub-folders
+        run: |
+          mkdir -p ./firmware/app
+          mkdir -p ./firmware/map
+
+          mv ./mv_firmware/map/* ./firmware/map/
+          mv ./mv_firmware/firmware/app_seeed_xiao_*.* ./firmware/app/
+
+          echo "ls -al ./firmware/map"
+          ls -al ./firmware/map
+
+          echo "ls -al ./firmware/app"
+          ls -al ./firmware/app
+
+          rm -rf ./mv_firmware
+
+      - name: Update Manifest files
+        run: |
+          python genManifest.py
+
+      - name: Push updated devel content in branch firmware
+        run: |
+          COMMIT_SHA=$(curl -s "https://api.github.com/repos/printminion/seeedstudio-xiao-TFT_eSPI_GifPlayer_With_Touch/commits/development" | jq -r '.sha')
+          COMMIT="Firmware built from commit https://github.com/printminion/seeedstudio-xiao-TFT_eSPI_GifPlayer_With_Touch/commit/${COMMIT_SHA}"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add -A
+          git commit --allow-empty -m "$COMMIT"
+          git push origin firmware -f
+
+#      - name: Download release firmwares from latest release in github
+#        run: |
+#          gh release download -p "printminion*" -D gh_latest -R github.com/printminion/seeedstudio-xiao-TFT_eSPI_GifPlayer_With_Touch
+#
+#      - name: Move firmware files in sub-folders
+#        run: |
+#          mkdir -p ./release-firmware/tasmota/languages
+#          mkdir -p ./release-firmware/tasmota32/languages
+#          [ ! -f ./gh_latest/tasmota.* ] || mv ./gh_latest/tasmota.* ./release-firmware/tasmota/
+#          [ ! -f ./gh_latest/tasmota32.* ] || mv ./gh_latest/tasmota32.* ./release-firmware/tasmota32/
+#          rm -rf ./gh_latest
+#
+#      - name: Push updated master firmwares in branch firmware
+#        run: |
+#          COMMIT_SHA=$(curl -s "https://api.github.com/repos/printminion/seeedstudio-xiao-TFT_eSPI_GifPlayer_With_Touch/commits/master" | jq -r '.sha')
+#          COMMIT="Firmware built from commit https://github.com/arendst/Tasmota/commit/${COMMIT_SHA}"
+#          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+#          git config user.name "github-actions[bot]"
+#          git add -A
+#          git commit --allow-empty -m "$COMMIT"
+#          git push origin firmware -f
+#
+#  start_workflow:
+#    needs: download
+#    runs-on: ubuntu-latest
+#    steps:
+#    - name: Dispatch workflow in repo printminion/Tasmota-build
+#      run: |
+#        curl -X POST https://api.github.com/repos/printminion/Tasmota-build/actions/workflows/Build_special_firmware.yml/dispatches \
+#        -H 'Accept: application/vnd.github.everest-preview+json' \
+#        -u ${{ secrets.API_TOKEN_GITHUB }} \
+#        --data '{"ref": "start_build"}'
+
+  deploy:
+    needs: download
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: firmware
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
