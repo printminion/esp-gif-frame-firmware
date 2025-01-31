@@ -1,0 +1,34 @@
+{
+    "release": [
+        {
+            "path": "https://printminion.github.io/esp-gif-frame-firmware/manifest_ext/release.xiao_seeed_esp32c3-seeed_touch.manifest.json",
+            "name": "XIAO ESP32-C3 (seeed_touch 1.28 104030087)",
+            "chipFamilies": [
+                "ESP32-C3"
+            ]
+        },
+        {
+            "path": "https://printminion.github.io/esp-gif-frame-firmware/manifest_ext/release.xiao_seeed_esp32s3-seeed_touch.manifest.json",
+            "name": "XIAO ESP32-S3 (seeed_touch 1.28 104030087)",
+            "chipFamilies": [
+                "ESP32-S3"
+            ]
+        }
+    ],
+    "development": [
+        {
+            "path": "https://printminion.github.io/esp-gif-frame-firmware/manifest_ext/development.xiao_seeed_esp32c3-seeed_touch.manifest.json",
+            "name": "XIAO ESP32-C3 (seeed_touch 1.28 104030087)",
+            "chipFamilies": [
+                "ESP32-C3"
+            ]
+        },
+        {
+            "path": "https://printminion.github.io/esp-gif-frame-firmware/manifest_ext/development.xiao_seeed_esp32s3-seeed_touch.manifest.json",
+            "name": "XIAO ESP32-S3 (seeed_touch 1.28 104030087)",
+            "chipFamilies": [
+                "ESP32-S3"
+            ]
+        }
+    ]
+}
